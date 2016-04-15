@@ -1,10 +1,7 @@
-# TodoApp implemented in *FB React*
+# TodoApp implemented in *FB React* with Firebase as backend
 
 the purpose of this exercise is to
-  - learn [FB React](https://facebook.github.io/react/)
-  - explore component architecture
-  - implement component-component communication using *Backbone Event*
-  - explore the *single state atom* pattern
+  - explore syncing of [FB React](https://facebook.github.io/react/) app with [Firebase](https://www.firebase.com)
 
 by using as few number of external dependencies as possible to avoid distractions from the learning goals.
 
