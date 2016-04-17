@@ -36,23 +36,30 @@
                 Todo = P.shape({description: P.string.isRequired}),
                 UserData = P.shape({userProfile: UserProfile.isRequired, todos: P.objectOf(Todo).isRequired});
 
-            // global event bus
-            var dispatcher = _.clone(Backbone.Events);
+            var dispatcher = _.clone(Backbone.Events),  // global event bus
+                firebaseRef = new Firebase("https://fundamental-todo-app.firebaseio.com");
+
+            /* Firebase schema
+                {users: {uid: userData, ...}}
+
+                security rules
+                {
+                  "rules": {
+                    "users": {
+                      "$uid": {
+                        ".read": "auth != null && auth.uid == $uid",
+                        ".write": "auth != null && auth.uid == $uid"
+                      }
+                    }
+                  }
+                }
+
+                uid and userData are to be synced with app state upon authentication.
+             */
 
             // Actions
-            var Actions = function() {
-                var firebaseRef = new Firebase("https://fundamental-todo-app.firebaseio.com"),
-                    users = firebaseRef.child("users");
-
-                /* Firebase schema
-                    {users: {uid: userData, ...}}
-
-                   uid and userData are to be synced with app state upon authentication.
-                 */
-
-                function getTodos(uid) {
-                    return users.child(uid + "/todos");
-                }
+            var AuthListenerActions = function() {
+                var users = firebaseRef.child("users");
 
                 function listenToUserData(uid) {
                     users.child(uid).on("value", function(snapshot) {
@@ -66,17 +73,27 @@
                     }
                 }
 
-                function login(credentials) {
-                    return firebaseRef.authWithPassword(credentials).catch(function(error) {
-                        alert(error.code + ": " + error.message);
-                    });
-                }
-
                 function handleAuthChange(authData) {
                     dispatcher.trigger("updateAuth", {authData: authData});
                 }
 
                 return {
+                    updateUserData: function(state, eventArgs) {
+                        return _.pick(eventArgs, "userData");
+                    },
+
+                    updateAuth: function(state, eventArgs) {
+                        var authData = eventArgs.authData;
+
+                        if (authData) {     // authenticated
+                            listenToUserData(authData.uid)
+                            return {uid: authData.uid};
+                        } else {            // unauthenticated
+                            unlistenToUserData(state.uid);
+                            return {uid: null, userData: null};
+                        }
+                    },
+
                     listenToAuth: function(state, eventArgs) {
                         firebaseRef.onAuth(handleAuthChange);
                     },
@@ -84,8 +101,20 @@
                     unlistenToAuth: function(state, eventArgs) {
                         firebaseRef.offAuth(handleAuthChange);
                         unlistenToUserData(state.uid);
-                    },
+                    }
+                };
+            };
 
+            var AuthActions = function() {
+                var users = firebaseRef.child("users");
+
+                function login(credentials) {
+                    return firebaseRef.authWithPassword(credentials).catch(function(error) {
+                        alert(error.code + ": " + error.message);
+                    });
+                }
+
+                return {
                     login: function(state, eventArgs) {
                         login(eventArgs);
                     },
@@ -108,24 +137,20 @@
                         }, function(error) {
                             alert(error.code + ": " + error.message);
                         });
-                    },
+                    }
+                };
+            };
 
-                    updateAuth: function(state, eventArgs) {
-                        var authData = eventArgs.authData;
+            var Actions = function() {
+                var authListenerActions = AuthListenerActions(),
+                    authActions = AuthActions(),
+                    users = firebaseRef.child("users");
 
-                        if (authData) {     // authenticated
-                            listenToUserData(authData.uid)
-                            return {uid: authData.uid};
-                        } else {            // unauthenticated
-                            unlistenToUserData(state.uid);
-                            return {uid: null, userData: null};
-                        }
-                    },
+                function getTodos(uid) {
+                    return users.child(uid + "/todos");
+                }
 
-                    updateUserData: function(state, eventArgs) {
-                        return _.pick(eventArgs, "userData");
-                    },
-
+                return _.defaults({
                     addTodo: function(state, eventArgs) {
                         getTodos(state.uid).push({description: eventArgs.description});
                     },
@@ -133,7 +158,7 @@
                     removeTodo: function(state, eventArgs) {
                         getTodos(state.uid).child(eventArgs.id).remove();
                     }
-                };
+                }, authListenerActions, authActions);
             };
 
             /* Components
