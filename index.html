@@ -25,7 +25,7 @@
         <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
         <script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.3.3/backbone-min.js"></script>
         <script src="//cdn.firebase.com/js/client/2.4.2/firebase.js"></script>
-        <script src="//cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react.min.js"></script>
         <script src="//cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react-dom.min.js"></script>
         <script>
             var R = React.createElement,
@@ -289,7 +289,7 @@
             var TextInput = React.createClass({
                 propTypes: {
                     // function(text) {...}
-                    onKeyDown: P.func
+                    onEnter: P.func
                 },
 
                 getInitialState: function() {
@@ -302,8 +302,12 @@
 
                 onEnter: function(e) {
                     if (e.keyCode === 13) {
-                        this.props.onEnter(e.target.value);
-                        this.setState({text: ''});
+                        var inputText = e.target.value.trim();
+
+                        if (inputText) {
+                            this.props.onEnter(inputText);
+                            this.setState({text: ''});
+                        }
                     }
                 },
 
@@ -312,7 +316,6 @@
                         type: "text",
                         value: this.state.text,
                         onChange: this.handleChange,
-
                         onKeyDown: this.onEnter
                     });
                 }
@@ -341,9 +344,7 @@
                     return R("ul", null, _.map(this.props.todos, function(todo, id) {
                         return R("li", {key: id}, R(TodoItem, {
                             todo: todo,
-
-                            // trigger an action
-                            onRemove: function() {dispatcher.trigger("removeTodo", {id: id});}
+                            onRemove: function() {dispatcher.trigger("removeTodo", {id: id});}  // trigger an action
                         }));
                     }));
                 }
@@ -359,15 +360,12 @@
 
                     return R("div", {id: "manage-todos"},
                         R(TextInput, {
-                            onEnter: function(text) {
-                                // trigger an action
-                                dispatcher.trigger("addTodo", {description: text});
-                            }
+                            onEnter: function(text) {dispatcher.trigger("addTodo", {description: text});}   // trigger an action
                         }),
 
-                        _.size(todos) ?
-                            R(TodoList, {todos: todos}) :
-                            R("p", null, "hurray no task!")
+                        _.isEmpty(todos) ?
+                            R("p", null, "hurray no task!") :
+                            R(TodoList, {todos: todos})
                     );
                 }
             });
@@ -414,9 +412,7 @@
                     dispatcher.trigger("listenToAuth");
                 },
 
-                componentWillUnmount: function() {
-                    dispatcher.trigger("unlistenToAuth");
-                },
+                componentWillUnmount: function() {dispatcher.trigger("unlistenToAuth");},
 
                 render: function() {
                     var uid = this.state.uid,
